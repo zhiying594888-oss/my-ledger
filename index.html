@@ -57,13 +57,12 @@ h3{margin:0 0 8px;font-size:16px}
 <div id="err" class="neg" style="font-size:13px;min-height:16px"></div>
 <button id="sbtn" class="full" onclick="save()">保存</button></div>
 
-<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">账户</h3><button class="pm" onclick="toggleAdd()" aria-label="加账户">＋</button></div>
-<div id="addbox">
+<div id="groups"></div>
+<div id="addbox" class="card"><h3>加账户</h3>
 <div class="flex"><select id="atype"><option value="cash">现金</option><option value="bank" selected>银行/金融</option><option value="cc">信用卡</option><option value="debt">负债（分期/贷款）</option></select></div>
 <div class="flex"><input id="an" placeholder="账户名"><input id="ab" type="number" inputmode="decimal" placeholder="余额/欠款"></div>
 <div class="lbl" style="margin-top:6px">信用卡和负债的欠款填正数，会自动显示成负数。</div>
-<button class="full on" onclick="addAcct()">加账户</button></div></div>
-<div id="groups"></div>
+<div class="flex"><button onclick="toggleAdd()">取消</button><button class="on" onclick="addAcct()">加账户</button></div></div>
 
 <div class="card"><h3>最近记录</h3><div id="list"></div>
 <div class="flex"><button onclick="backup()">导出备份</button><button onclick="auth.signOut()">退出登录</button></div></div>
@@ -174,8 +173,10 @@ const list=D.a.filter(a=>a.type===k);
 if(!list.length)return '';
 const sub=r2(list.reduce((s,a)=>s+a.b,0));
 return `<div class="card"><div class="gh">${name}<b class="${sub<0?'neg':''}">${fm(sub)}</b></div>`+list.map(a=>`<div class="row click" onclick="openAcct('${a.id}')"><span style="display:flex;align-items:center"><span class="ic">${ICON(a.type)}</span><span><span class="nm">${a.n}</span>${a.ex?'<br><span class="tag">不计入资产</span>':''}</span></span><span class="nm ${a.b<0?'neg':''}">${fm(a.b)} ›</span></div>`).join('')+`</div>`;
-}).join('');
-$('groups').innerHTML=g||'<div class="card lbl">还没有账户，点上面的 ＋ 加一个</div>';
+}).filter(x=>x);
+const plus='<div class="row click" onclick="toggleAdd()" style="justify-content:center;color:#4a9eff;font-size:16px">＋ 加账户</div>';
+if(g.length)g[g.length-1]=g[g.length-1].replace(/<\/div>$/,plus+'</div>');
+$('groups').innerHTML=g.length?g.join(''):'<div class="card">'+plus+'</div>';
 $('list').innerHTML=D.t.slice(0,50).map((t,i)=>{
 const v=t.k==='s'?-t.v:t.v;
 const s=t.k==='t'?fm(t.v):sg(v);
@@ -233,7 +234,7 @@ function shiftM(k){let [y,m]=sm.split('-').map(Number);m+=k;if(m<1){m=12;y--}if(
 function openStats(){view='stats';sm=today().slice(0,7);render();window.scrollTo(0,0)}
 function openAcct(id){sel=id;view='detail';$('nb').value='';$('derr').textContent='';render();window.scrollTo(0,0)}
 function goMain(){view='main';render()}
-function toggleAdd(){const b=$('addbox');b.style.display=b.style.display==='block'?'none':'block'}
+function toggleAdd(){const b=$('addbox');b.style.display=b.style.display==='block'?'none':'block';if(b.style.display==='block'){b.scrollIntoView({behavior:'smooth',block:'center'});$('an').focus()}}
 function toggleEx(){const a=A(sel);a.ex=$('dex').checked;store();render()}
 function adjust(){
 const a=A(sel);let nb=parseFloat($('nb').value);
