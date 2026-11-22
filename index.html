@@ -24,13 +24,17 @@ body{font-family:-apple-system,sans-serif;margin:0 auto;max-width:640px;padding:
 .gh b{color:#c7c7cc;font-weight:500;margin-left:8px}
 input,select,button{font-size:16px;padding:10px;border-radius:9px;border:1px solid #3a3b40;box-sizing:border-box;background:#26272b;color:#f2f2f2}
 .on{background:#2f4f7a;border-color:#4a7fc1}
+#m-s.on{background:#4a1f24;border-color:#ff6b6b;color:#ff8a8a}
+#m-i.on{background:#1c3550;border-color:#4a9eff;color:#7cb8ff}
+#m-t.on{background:#173f2e;border-color:#3ecf8e;color:#6be0ad}
+.pm{padding:2px 12px;font-size:20px;line-height:1.2}
 .full{width:100%;margin-top:8px}
 .flex{display:flex;gap:8px;margin-top:8px}
 .flex>*{flex:1}
 .stats{display:flex;gap:8px;margin-top:10px}
 .stats>div{flex:1}
 h3{margin:0 0 8px;font-size:16px}
-#app,#detail{display:none}
+#app,#detail,#stats,#addbox{display:none}
 </style>
 </head>
 <body>
@@ -42,38 +46,46 @@ h3{margin:0 0 8px;font-size:16px}
 <div id="app">
 <div id="main">
 <div class="card"><div class="lbl">总资产 <span id="sync" style="float:right"></span></div><div class="big" id="total"></div>
-<div class="stats"><div><div class="lbl">负债</div><b class="neg" id="debt"></b></div><div><div class="lbl">净资产</div><b id="net"></b></div><div><div class="lbl">本月支出</div><b id="spent"></b></div></div></div>
+<div class="stats"><div><div class="lbl">负债</div><b class="neg" id="debt"></b></div><div><div class="lbl">净资产</div><b id="net"></b></div><div><div class="lbl">本月支出</div><b id="spent"></b></div></div>
+<button class="full" onclick="openStats()">📊 统计</button></div>
 
 <div class="card"><h3>记一笔</h3>
 <div class="flex"><button id="m-s" onclick="setMode('s')">支出</button><button id="m-i" onclick="setMode('i')">收入</button><button id="m-t" onclick="setMode('t')">转账/还款</button></div>
+<div class="flex"><select id="from"></select><select id="to" onchange="pickTo()"></select></div>
 <input id="amt" class="full" type="number" inputmode="decimal" placeholder="金额">
-<div class="flex"><select id="from"></select><select id="to"></select></div>
 <input id="note" class="full" placeholder="备注">
 <div id="err" class="neg" style="font-size:13px;min-height:16px"></div>
-<button class="full on" onclick="save()">保存</button></div>
+<button id="sbtn" class="full" onclick="save()">保存</button></div>
 
-<div id="groups"></div>
-
-<div class="card"><h3>加账户</h3>
+<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">账户</h3><button class="pm" onclick="toggleAdd()" aria-label="加账户">＋</button></div>
+<div id="addbox">
 <div class="flex"><select id="atype"><option value="cash">现金</option><option value="bank" selected>银行/金融</option><option value="cc">信用卡</option><option value="debt">负债（分期/贷款）</option></select></div>
 <div class="flex"><input id="an" placeholder="账户名"><input id="ab" type="number" inputmode="decimal" placeholder="余额/欠款"></div>
 <div class="lbl" style="margin-top:6px">信用卡和负债的欠款填正数，会自动显示成负数。</div>
-<button class="full" onclick="addAcct()">加账户</button></div>
+<button class="full on" onclick="addAcct()">加账户</button></div></div>
+<div id="groups"></div>
 
 <div class="card"><h3>最近记录</h3><div id="list"></div>
 <div class="flex"><button onclick="backup()">导出备份</button><button onclick="auth.signOut()">退出登录</button></div></div>
 </div>
 
 <div id="detail">
-<div class="card"><button onclick="closeAcct()">← 返回</button>
+<div class="card"><button onclick="goMain()">← 返回</button>
 <div class="lbl" style="margin-top:12px" id="dname"></div><div class="big" id="dbal"></div>
 <label style="display:block;margin-top:10px;font-size:15px"><input type="checkbox" id="dex" onchange="toggleEx()"> 不计入总资产</label></div>
 <div class="card"><h3>余额调整</h3><div class="lbl" id="dhint"></div>
 <input id="nb" class="full" type="number" inputmode="decimal" placeholder="现在的真实余额">
 <div id="derr" class="neg" style="font-size:13px;min-height:16px"></div>
 <button class="full on" onclick="adjust()">调整</button></div>
-<div class="card"><h3>这个账户的明细</h3><div id="dlist"></div>
+<div class="card"><h3>这个账户的全部明细</h3><div id="dlist"></div>
 <button class="full" onclick="delAcct()" style="color:#ff6b6b">删除这个账户</button></div>
+</div>
+
+<div id="stats">
+<div class="card"><button onclick="goMain()">← 返回</button>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px"><button class="pm" onclick="shiftM(-1)" aria-label="上个月">‹</button><b id="smon" style="font-size:18px"></b><button class="pm" onclick="shiftM(1)" aria-label="下个月">›</button></div>
+<div class="stats"><div><div class="lbl">总支出</div><b class="neg" id="sexp"></b></div><div><div class="lbl">总收入</div><b style="color:#4a9eff" id="sinc"></b></div><div><div class="lbl">结余</div><b id="sbal"></b></div></div></div>
+<div class="card"><h3>支出分类</h3><div id="pie" style="text-align:center"></div><div id="legend"></div></div>
 </div>
 </div>
 
@@ -92,17 +104,20 @@ appId:"1:118605783558:web:5514fe907e90026aca5987"
 const auth=firebase.auth(),db=firebase.firestore();
 const CATS=['吃饭','交通','购物','家用','娱乐','其他'];
 const TYPES=[['cash','现金账户','💵'],['bank','金融账户','🏦'],['cc','信用卡账户（负债）','💳'],['debt','负债账户','🧾']];
+const COL=['#ff6b6b','#4a9eff','#3ecf8e','#f7b84b','#b36bff','#ff9f6b','#5ad1e6','#e66bb3','#9aa0a6'];
+const MC={s:['#4a1f24','#ff6b6b'],i:['#1c3550','#4a9eff'],t:['#173f2e','#3ecf8e']};
 const NEGT=t=>t==='cc'||t==='debt';
 const ICON=t=>(TYPES.find(x=>x[0]===t)||TYPES[1])[2];
-let D={a:[],t:[]},mode='s',ref=null,unsub=null,sel=null;
+let D={a:[],t:[],cats:[]},mode='s',ref=null,unsub=null,sel=null,view='main',sm='';
 const $=id=>document.getElementById(id);
 const r2=v=>Math.round(v*100)/100;
 const uid=()=>Math.random().toString(36).slice(2,10);
 const A=id=>D.a.find(a=>a.id===id);
-const today=()=>new Date().toISOString().slice(0,10);
+const today=()=>{const d=new Date();return new Date(d-d.getTimezoneOffset()*60000).toISOString().slice(0,10)};
 const fm=v=>(v<0?'-':'')+Math.abs(v).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
 const sg=v=>(v>0?'+':'')+fm(v);
 function fix(){
+if(!D.cats||!D.cats.length)D.cats=CATS.slice();
 D.a.forEach(a=>{
 if(!a.id)a.id=uid();
 if(!a.type)a.type=a.cc?'cc':'bank';
@@ -131,7 +146,7 @@ if(!u)return;
 ref=db.collection('users').doc(u.uid).collection('data').doc('main');
 unsub=ref.onSnapshot(s=>{
 D=s.exists?s.data():{a:[],t:[]};D.a=D.a||[];D.t=D.t||[];fix();
-if(sel&&!A(sel))sel=null;
+if(view==='detail'&&!A(sel))view='main';
 $('sync').textContent=s.metadata.hasPendingWrites?'同步中…':'已同步';render();
 },e=>$('sync').textContent='同步出错');
 });
@@ -143,34 +158,44 @@ const nm=(A(t.fid)||{}).n||t.f||'';
 return `<div class="row"><span>${t.c} ${t.n||''}<div class="lbl">${t.d.slice(5)} · ${nm}</div></span><span class="${neg?'neg':''}">${amt} <button onclick="delT(${i})" style="padding:2px 8px">×</button></span></div>`;
 }
 function render(){
-$('main').style.display=sel?'none':'block';
-$('detail').style.display=sel?'block':'none';
-if(sel){renderDetail();return}
+$('main').style.display=view==='main'?'block':'none';
+$('detail').style.display=view==='detail'?'block':'none';
+$('stats').style.display=view==='stats'?'block':'none';
+if(view==='detail'){renderDetail();return}
+if(view==='stats'){renderStats();return}
 let tot=0,debt=0,net=0;
 D.a.forEach(a=>{net+=a.b;if(!a.ex)tot+=a.b;if(NEGT(a.type))debt+=a.b});
 $('total').textContent=fm(r2(tot));$('debt').textContent=fm(r2(debt));
 $('net').textContent=fm(r2(net));$('net').className=net<0?'neg':'';
 const ym=today().slice(0,7);
-$('spent').textContent=fm(D.t.filter(t=>t.k==='s'&&t.d.startsWith(ym)).reduce((s,t)=>s+t.v,0));
+$('spent').textContent=fm(r2(D.t.filter(t=>t.k==='s'&&t.d.startsWith(ym)).reduce((s,t)=>s+t.v,0)));
 const g=TYPES.map(([k,name])=>{
 const list=D.a.filter(a=>a.type===k);
 if(!list.length)return '';
 const sub=r2(list.reduce((s,a)=>s+a.b,0));
 return `<div class="card"><div class="gh">${name}<b class="${sub<0?'neg':''}">${fm(sub)}</b></div>`+list.map(a=>`<div class="row click" onclick="openAcct('${a.id}')"><span style="display:flex;align-items:center"><span class="ic">${ICON(a.type)}</span><span><span class="nm">${a.n}</span>${a.ex?'<br><span class="tag">不计入资产</span>':''}</span></span><span class="nm ${a.b<0?'neg':''}">${fm(a.b)} ›</span></div>`).join('')+`</div>`;
 }).join('');
-$('groups').innerHTML=g||'<div class="card lbl">还没有账户，先在下面加一个</div>';
+$('groups').innerHTML=g||'<div class="card lbl">还没有账户，点上面的 ＋ 加一个</div>';
 $('list').innerHTML=D.t.slice(0,50).map((t,i)=>{
 const v=t.k==='s'?-t.v:t.v;
 const s=t.k==='t'?fm(t.v):sg(v);
 return line(t,s,t.k!=='t'&&v<0,i);
 }).join('');
 ['s','i','t'].forEach(k=>$('m-'+k).className=mode===k?'on':'');
+$('sbtn').style.background=MC[mode][0];$('sbtn').style.borderColor=MC[mode][1];
 const acc=D.a.map(a=>[a.id,a.n]);
 const f=$('from').value,to=$('to').value;
 $('from').innerHTML=opts(acc);
-$('to').innerHTML=mode==='t'?opts(acc.map(x=>[x[0],'转到 '+x[1]])):opts(CATS.map(c=>[c,c]));
+$('to').innerHTML=mode==='t'?opts(acc.map(x=>[x[0],'转到 '+x[1]])):opts(D.cats.map(c=>[c,c]))+'<option value="__new">＋ 新分类</option>';
 if(f&&A(f))$('from').value=f;
-if(to&&[...$('to').options].some(o=>o.value===to))$('to').value=to;
+if(to&&to!=='__new'&&[...$('to').options].some(o=>o.value===to))$('to').value=to;
+}
+function pickTo(){
+if($('to').value!=='__new')return;
+const n=(prompt('新分类名称')||'').trim();
+if(n&&!D.cats.includes(n)){D.cats.push(n);store()}
+render();
+$('to').value=n&&D.cats.includes(n)?n:D.cats[0];
 }
 function renderDetail(){
 const a=A(sel);
@@ -181,8 +206,34 @@ $('dhint').textContent=NEGT(a.type)?'填现在的欠款（正数即可），差�
 const rows=D.t.map((t,i)=>[t,i]).filter(([t])=>t.fid===sel||t.tid===sel);
 $('dlist').innerHTML=rows.map(([t,i])=>{const e=eff(t,sel);return line(t,sg(e),e<0,i)}).join('')||'<div class="lbl">这个账户还没有记录</div>';
 }
-function openAcct(id){sel=id;$('nb').value='';$('derr').textContent='';render();window.scrollTo(0,0)}
-function closeAcct(){sel=null;render()}
+function renderStats(){
+const [yy,mm]=sm.split('-');$('smon').textContent=yy+'年'+Number(mm)+'月';
+const ts=D.t.filter(t=>t.d.startsWith(sm));
+const exp=r2(ts.filter(t=>t.k==='s').reduce((s,t)=>s+t.v,0));
+const inc=r2(ts.filter(t=>t.k==='i').reduce((s,t)=>s+t.v,0));
+const bal=r2(inc-exp);
+$('sexp').textContent=fm(exp);$('sinc').textContent=fm(inc);
+$('sbal').textContent=fm(bal);$('sbal').className=bal<0?'neg':'';
+const by={};ts.filter(t=>t.k==='s').forEach(t=>by[t.c]=(by[t.c]||0)+t.v);
+const arr=Object.entries(by).sort((a,b)=>b[1]-a[1]);
+if(!exp){$('pie').innerHTML='<div class="lbl">这个月还没有支出</div>';$('legend').innerHTML='';return}
+let ang=0,svg='';
+const pt=a=>[100+90*Math.sin(a),100-90*Math.cos(a)];
+arr.forEach(([c,v],i)=>{
+const col=COL[i%COL.length],f=v/exp;
+if(f>=0.9999){svg+=`<circle cx="100" cy="100" r="90" fill="${col}"/>`;return}
+const a1=ang+f*2*Math.PI,p0=pt(ang),p1=pt(a1);
+svg+=`<path d="M100 100 L${p0[0]} ${p0[1]} A90 90 0 ${f>0.5?1:0} 1 ${p1[0]} ${p1[1]}Z" fill="${col}"/>`;
+ang=a1;
+});
+$('pie').innerHTML=`<svg viewBox="0 0 200 200" width="220" height="220">${svg}<circle cx="100" cy="100" r="50" fill="#1c1d20"/></svg>`;
+$('legend').innerHTML=arr.map(([c,v],i)=>`<div class="row"><span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${COL[i%COL.length]};margin-right:8px"></span>${c}</span><span>${fm(r2(v))} <span class="lbl">${Math.round(v/exp*100)}%</span></span></div>`).join('');
+}
+function shiftM(k){let [y,m]=sm.split('-').map(Number);m+=k;if(m<1){m=12;y--}if(m>12){m=1;y++}sm=y+'-'+String(m).padStart(2,'0');render()}
+function openStats(){view='stats';sm=today().slice(0,7);render();window.scrollTo(0,0)}
+function openAcct(id){sel=id;view='detail';$('nb').value='';$('derr').textContent='';render();window.scrollTo(0,0)}
+function goMain(){view='main';render()}
+function toggleAdd(){const b=$('addbox');b.style.display=b.style.display==='block'?'none':'block'}
 function toggleEx(){const a=A(sel);a.ex=$('dex').checked;store();render()}
 function adjust(){
 const a=A(sel);let nb=parseFloat($('nb').value);
@@ -200,12 +251,12 @@ const n=$('an').value.trim();let b=parseFloat($('ab').value)||0;const type=$('at
 if(!n){alert('先填账户名');return}
 if(NEGT(type))b=-Math.abs(b);
 D.a.push({id:uid(),n,b:r2(b),type,cc:type==='cc',ex:NEGT(type)});
-$('an').value='';$('ab').value='';store();render();
+$('an').value='';$('ab').value='';$('addbox').style.display='none';store();render();
 }
 function delAcct(){
 const a=A(sel);
 if(!confirm('删除账户 '+a.n+'？它的记录会留着，但余额不再计算。'))return;
-D.a=D.a.filter(x=>x.id!==sel);sel=null;store();render();
+D.a=D.a.filter(x=>x.id!==sel);view='main';store();render();
 }
 function save(){
 const v=r2(parseFloat($('amt').value));
