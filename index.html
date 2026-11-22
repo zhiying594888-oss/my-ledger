@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="记账">
+<title>记账</title>
+<style>
+body{font-family:-apple-system,sans-serif;margin:0 auto;max-width:640px;padding:16px;padding-top:max(16px,env(safe-area-inset-top));background:#f5f5f7;color:#111}
+.card{background:#fff;border-radius:12px;padding:14px;margin-bottom:12px}
+.lbl{font-size:13px;color:#777}
+.big{font-size:28px;font-weight:600}
+.row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #eee}
+.neg{color:#d33}
+input,select,button{font-size:16px;padding:9px;border-radius:8px;border:1px solid #ccc;box-sizing:border-box;background:#fff}
+.on{background:#e6f1fb;border-color:#378add}
+.full{width:100%;margin-top:8px}
+.flex{display:flex;gap:8px;margin-top:8px}
+.flex>*{flex:1}
+h3{margin:0 0 6px;font-size:16px}
+#app{display:none}
+</style>
+</head>
+<body>
+<div id="login" class="card" style="text-align:center">
+<h3>记账</h3><p class="lbl">用 Google 账号登录，手机和电脑自动同步</p>
+<button class="full on" onclick="login()">用 Google 登录</button>
+<div id="lerr" class="neg" style="font-size:13px;margin-top:8px"></div></div>
+
+<div id="app">
+<div class="card"><div class="lbl">总资产 <span id="sync" style="float:right"></span></div><div class="big" id="total"></div>
+<div class="flex"><div><div class="lbl">本月支出</div><b id="spent"></b></div><div><div class="lbl">信用卡欠款</div><b class="neg" id="debt"></b></div></div></div>
+
+<div class="card"><h3>记一笔</h3>
+<div class="flex"><button id="m-s" onclick="setMode('s')">支出</button><button id="m-i" onclick="setMode('i')">收入</button><button id="m-t" onclick="setMode('t')">转账/还款</button></div>
+<input id="amt" class="full" type="number" inputmode="decimal" placeholder="金额">
+<div class="flex"><select id="from"></select><select id="to"></select></div>
+<input id="note" class="full" placeholder="备注">
+<div id="err" class="neg" style="font-size:13px;min-height:16px"></div>
+<button class="full on" onclick="save()">保存</button></div>
+
+<div class="card"><h3>账户</h3><div id="accts"></div>
+<div class="flex"><input id="an" placeholder="账户名"><input id="ab" type="number" inputmode="decimal" placeholder="余额"></div>
+<label style="display:block;margin-top:8px"><input type="checkbox" id="acc"> 信用卡（欠款填正数即可）</label>
+<button class="full" onclick="addAcct()">加账户</button></div>
+
+<div class="card"><h3>最近记录</h3><div id="list"></div>
+<div class="flex"><button onclick="backup()">导出备份</button><button onclick="auth.signOut()">退出登录</button></div></div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+firebase.initializeApp({
+apiKey:"AIzaSyA6vF0KXRESGnpbNr5pAAqMS7tkJWiKc3I",
+authDomain:"my-ledger-92c06.firebaseapp.com",
+projectId:"my-ledger-92c06",
+storageBucket:"my-ledger-92c06.firebasestorage.app",
+messagingSenderId:"118605783558",
+appId:"1:118605783558:web:5514fe907e90026aca5987"
+});
+const auth=firebase.auth(),db=firebase.firestore();
+const CATS=['吃饭','交通','购物','家用','娱乐','其他'];
+let D={a:[],t:[]},mode='s',ref=null,unsub=null;
+const $=id=>document.getElementById(id);
+const fm=v=>(v<0?'-':'')+Math.abs(v).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
+function login(){
+$('lerr').textContent='';
+auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e=>$('lerr').textContent='登录失败：'+e.message);
+}
+auth.onAuthStateChanged(u=>{
+if(unsub){unsub();unsub=null}
+$('login').style.display=u?'none':'block';
+$('app').style.display=u?'block':'none';
+if(!u)return;
+ref=db.collection('users').doc(u.uid).collection('data').doc('main');
+unsub=ref.onSnapshot(s=>{
+D=s.exists?s.data():{a:[],t:[]};D.a=D.a||[];D.t=D.t||[];
+$('sync').textContent=s.metadata.hasPendingWrites?'同步中…':'已同步';render();
+},e=>$('sync').textContent='同步出错');
+});
+function store(){ref.set(D).catch(e=>alert('保存失败：'+e.message))}
+function opts(list){return list.map(x=>`<option value="${x[0]}">${x[1]}</option>`).join('')}
+function setMode(m){mode=m;render()}
+function render(){
+let tot=0,debt=0;D.a.forEach(a=>{tot+=a.b;if(a.cc)debt+=a.b});
+$('total').textContent=fm(tot);$('debt').textContent=fm(debt);
+const ym=new Date().toISOString().slice(0,7);
+$('spent').textContent=fm(D.t.filter(t=>t.k==='s'&&t.d.startsWith(ym)).reduce((s,t)=>s+t.v,0));
+$('accts').innerHTML=D.a.map((a,i)=>`<div class="row"><span>${a.cc?'💳':'🏦'} ${a.n}</span><span class="${a.b<0?'neg':''}">${fm(a.b)} <button onclick="delAcct(${i})" style="padding:2px 8px">×</button></span></div>`).join('')||'<div class="lbl">还没有账户，先在下面加一个</div>';
+$('list').innerHTML=D.t.slice(0,50).map((t,i)=>`<div class="row"><span>${t.c} ${t.n||''}<div class="lbl">${t.d.slice(5)} · ${t.f}</div></span><span class="${t.k==='s'?'neg':''}">${t.k==='s'?'-':t.k==='i'?'+':''}${fm(t.v)} <button onclick="delT(${i})" style="padding:2px 8px">×</button></span></div>`).join('');
+['s','i','t'].forEach(k=>$('m-'+k).className=mode===k?'on':'');
+const acc=D.a.map((a,i)=>[i,a.n]);
+const f=$('from').value,t=$('to').value;
+$('from').innerHTML=opts(acc);
+$('to').innerHTML=mode==='t'?opts(acc.map(x=>[x[0],'转到 '+x[1]])):opts(CATS.map(c=>[c,c]));
+if(f)$('from').value=f;if(t&&[...$('to').options].some(o=>o.value===t))$('to').value=t;
+}
+function addAcct(){
+const n=$('an').value.trim();let b=parseFloat($('ab').value)||0;const cc=$('acc').checked;
+if(!n){alert('先填账户名');return}
+if(cc)b=-Math.abs(b);
+D.a.push({n,b:Math.round(b*100)/100,cc});$('an').value='';$('ab').value='';$('acc').checked=false;store();render();
+}
+function delAcct(i){if(confirm('删除账户 '+D.a[i].n+'？')){D.a.splice(i,1);store();render()}}
+function save(){
+const v=Math.round(parseFloat($('amt').value)*100)/100;
+if(!v||v<=0){$('err').textContent='先输入金额';return}
+if(!D.a.length){$('err').textContent='先加一个账户';return}
+$('err').textContent='';
+const f=+$('from').value,n=$('note').value,d=new Date().toISOString().slice(0,10);
+if(mode==='t'){const to=+$('to').value;if(to===f){$('err').textContent='转出和转入不能是同一个';return}
+D.a[f].b-=v;D.a[to].b+=v;D.t.unshift({k:'t',v,d,c:'转账',n:'→ '+D.a[to].n,f:D.a[f].n,fi:f,ti:to});}
+else{const c=$('to').value;D.a[f].b+=mode==='s'?-v:v;D.t.unshift({k:mode,v,d,c:mode==='i'?'收入':c,n,f:D.a[f].n,fi:f});}
+D.a.forEach(a=>a.b=Math.round(a.b*100)/100);
+$('amt').value='';$('note').value='';store();render();
+}
+function delT(i){const t=D.t[i];if(!confirm('删除这笔记录？'))return;
+if(D.a[t.fi]){if(t.k==='s')D.a[t.fi].b+=t.v;else if(t.k==='i')D.a[t.fi].b-=t.v;else{D.a[t.fi].b+=t.v;if(D.a[t.ti])D.a[t.ti].b-=t.v}}
+D.t.splice(i,1);store();render();}
+function backup(){const b=new Blob([JSON.stringify(D)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='记账备份.json';a.click();}
+$('amt').oninput=()=>$('err').textContent='';
+</script>
+</body>
+</html>
